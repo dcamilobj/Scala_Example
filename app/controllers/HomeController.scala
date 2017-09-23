@@ -79,7 +79,7 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
   }
 
   def getPlaceDB(id:Int) = Action{
-    var placesList = ListBuffer[Place]()
+    var specificPlace : Place = null
     db.withConnection {
       conn=>{
         try{
@@ -91,14 +91,12 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
               val id = result.getInt("id")
               val name = result.getString("name")
               val description = result.getString("description")
-              val newPlace = new Place(id, name, Some(description))
-              placesList += newPlace
+              specificPlace = new Place(id, name, Some(description))
             }
         }
       }
     }
-    val places = placesList.toList
-    val jsonPlace = Json.toJson(placesList)
+    val jsonPlace = Json.toJson(specificPlace)
     Ok(jsonPlace)
 
   }
