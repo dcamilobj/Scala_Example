@@ -78,6 +78,31 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
     Ok(jsonPlace)
   }
 
+  def getPlaceDB(id:Int) = Action{
+    var placesList = ListBuffer[Place]()
+    db.withConnection {
+      conn=>{
+        try{
+          val statement = conn.createStatement()
+          val getStatement = s"SELECT * FROM place WHERE id=$id"
+          val result = statement.executeQuery(getStatement)
+          while(result.next())
+            {
+              val id = result.getInt("id")
+              val name = result.getString("name")
+              val description = result.getString("description")
+              val newPlace = new Place(id, name, Some(description))
+              placesList += newPlace
+            }
+        }
+      }
+    }
+    val places = placesList.toList
+    val jsonPlace = Json.toJson(placesList)
+    Ok(jsonPlace)
+
+  }
+
   /**
     * Action to save a place
     * @return
@@ -129,10 +154,23 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
     * @return
     */
   def removePlace(id:Int) = Action {
-    places = places.filterNot(_.id == id)
+    //places = places.filterNot(_.id == id)
+    removePlaceDB(id)
     Ok(Json.toJson(
       Map("message" -> "Borrado exitoso")
     ))
+  }
+
+  def removePlaceDB(id: Int) = {
+    db.withConnection {
+      conn  => {
+        try {
+          val statement = conn.createStatement
+          val deleteStatement = s"DELETE FROM place WHERE id = $id;"
+          statement.execute(deleteStatement)
+        }
+      }
+    }
   }
 
   /**
@@ -144,14 +182,33 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
 
     bodyAsJson.validate[Place].fold(
       valid = response => {
-        var newPlace = Place(response.id, response.name, response.description)
-        places = places.map(x => if (x.id == response.id) newPlace else x)
+        //var newPlace = Place(response.id, response.name, response.description)
+        //places = places.map(x => if (x.id == response.id) newPlace else x)
+        updatePlaceDB(response)
         Ok(Json.toJson(
           Map("message" -> "Successful update")
         ))
       },
       invalid = error => BadRequest(Json.toJson(
         Map("error" -> "Could not update", "description" -> "Bad parameters"))))
+  }
+
+  /**
+    *
+    * @param place
+    * @return
+    */
+  def updatePlaceDB(place:Place) = {
+    db.withConnection {
+      conn => {
+        try{
+          val statement = conn.createStatement
+          val updateStatement = s"UPDATE place SET id=${place.id}, name= '${place.name}', description ='${place.description}'" +
+            s"WHERE id=${place.id};"
+          statement.execute(updateStatement)
+        }
+      }
+    }
   }
 }
 
