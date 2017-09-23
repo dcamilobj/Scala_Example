@@ -21,14 +21,6 @@ messagesApi: MessagesApi*/
 @Singleton
 class HomeController @Inject() (cc: ControllerComponents, db: Database) extends AbstractController(cc) {
 
-  //val places2: List[Place] = Place(1, "Robledo") :: Place(2, "Medellin") :: Place(3, "Barbosa") :: Nil
-
-  var places = List(
-    Place(1, "Robledo", None),
-    Place(2, "Medellín", Some("Beautiful city")),
-    Place(3, "Barbosa", Some("So hot"))
-  )
-
 
   /**
     * Create an Action to render an HTML page.
@@ -46,6 +38,12 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
     * Action to return all places
     */
   def listPlaces = Action {
+    val placesL = listPlacesDB()
+    val jsonPlaces = Json.toJson(placesL)
+    Ok(jsonPlaces)
+  }
+
+  def listPlacesDB() : List[Place] = {
     var placesList = ListBuffer[Place]()
     db.withConnection {
       conn => {
@@ -63,9 +61,7 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
         }
       }
     }
-    val placesL = placesList.toList
-    val jsonPlaces = Json.toJson(placesL)
-    Ok(jsonPlaces)
+    return placesList.toList
   }
 
   /**
@@ -73,12 +69,15 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
     * @param id
     */
   def getPlace(id:Int) = Action {
-    val specificPlace = places.filter(_.id == id)
-    val jsonPlace = Json.toJson(specificPlace)
+    val specificPlace = getPlaceDB(id)
+    var jsonPlace = Json.toJson("Error: Not Found")
+    if(specificPlace != null) {
+      jsonPlace = Json.toJson(specificPlace)
+    }
     Ok(jsonPlace)
   }
 
-  def getPlaceDB(id:Int) = Action{
+  def getPlaceDB(id:Int) :Place = {
     var specificPlace : Place = null
     db.withConnection {
       conn=>{
@@ -96,9 +95,7 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
         }
       }
     }
-    val jsonPlace = Json.toJson(specificPlace)
-    Ok(jsonPlace)
-
+   return specificPlace
   }
 
   /**
@@ -115,6 +112,7 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
         /*Validate that the id does not exist*/
         val message: Option[String] =
         {
+          val places = listPlacesDB()
           places.find(_.id == response.id) match {
             case Some(q) => Option("The place you want to enter already exists")
             //case None => places = places :+ response
