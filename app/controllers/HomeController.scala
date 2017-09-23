@@ -22,9 +22,9 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
   //val places2: List[Place] = Place(1, "Robledo") :: Place(2, "Medellin") :: Place(3, "Barbosa") :: Nil
 
   var places = List(
-    Place(1, "Robledo"),
-    Place(2, "Medellín"),
-    Place(3, "Barbosa")
+    Place(1, "Robledo", None),
+    Place(2, "Medellín", Some("Beautiful city")),
+    Place(3, "Barbosa", Some("So hot"))
   )
 
 
@@ -40,28 +40,60 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
     Ok(views.html.index())
   }
 
-
+  /**
+    * Action to return all places
+    */
   def listPlaces = Action {
-    val json = Json.toJson(places)
-    Ok(json)
+    val jsonPlaces = Json.toJson(places)
+    Ok(jsonPlaces)
   }
 
+  /**
+    * Action to return a specific place given its id
+    * @param id
+    */
+  def getPlace(id:Int) = Action {
+    val specificPlace = places.filter(_.id == id)
+    val jsonPlace = Json.toJson(specificPlace)
+    Ok(jsonPlace)
+  }
+
+  /**
+    * Action to save a place
+    * @return
+    */
   def addPlace() = Action { implicit request =>
     val bodyAsJson = request.body.asJson.get
 
-    bodyAsJson.validate[Place] match {
-      case success: JsSuccess[Place] =>
-        val place = success.get
-        places = places :+ place
+    bodyAsJson.validate[Place].fold(
+
+      /*Successful*/
+      valid =  response => {
+        /*Validate that the id does not exist*/
+        val message: Option[String] =
+        {
+          places.find(_.id == response.id) match {
+            case Some(q) => Option("The place you want to enter already exists")
+            case None => places = places :+ response
+              Option("Successful registration")
+          }
+        }
+
+        /* Json response*/
         Ok(Json.toJson(
-          Map("message" -> "Ingreso exitoso")
-        ))
-      case JsError(error) => BadRequest(Json.toJson(
-        Map("error" -> "Bad Parameters", "description" -> "Missing a parameter")
-      ))
-    }
+          Map("message" -> message)
+        )) }
+        ,
+      /*Error*/
+      invalid = error => BadRequest(Json.toJson(
+        Map("error" -> "Bad Parameters", "description" -> "Missing a parameter"))))
   }
 
+  /**
+    * Action to remove a specific place given its id
+    * @param id
+    * @return
+    */
   def removePlace(id:Int) = Action {
     places = places.filterNot(_.id == id)
     Ok(Json.toJson(
@@ -69,22 +101,24 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
     ))
   }
 
+  /**
+    *
+    * @return
+    */
   def updatePlace() = Action { implicit request =>
     val bodyAsJson = request.body.asJson.get
 
-    bodyAsJson.validate[Place] match {
-      case success: JsSuccess[Place] =>
-        var newPlace = Place(success.get.id, success.get.name)
-        places = places.map(x => if (x.id == success.get.id) newPlace else x)
+    bodyAsJson.validate[Place].fold(
+      valid = response => {
+        var newPlace = Place(response.id, response.name, response.description)
+        places = places.map(x => if (x.id == response.id) newPlace else x)
         Ok(Json.toJson(
-          Map("message" -> "Actualizacion exitosa")
+          Map("message" -> "Successful update")
         ))
-      case e:JsError => BadRequest(Json.toJson(
-        Map("error" -> "No se pudo actualizar", "description" -> "Bad parameters")))
-    }
+      },
+      invalid = error => BadRequest(Json.toJson(
+        Map("error" -> "Could not update", "description" -> "Bad parameters"))))
   }
-
-
 }
 
 
