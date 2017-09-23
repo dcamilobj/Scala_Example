@@ -3,11 +3,13 @@ package controllers
 import javax.inject._
 
 import models.Place
-import play.api._
 import play.api.mvc._
 import play.api.libs.json._
-import play.api.libs.json.Reads._
-import play.api.libs.functional.syntax._
+import play.api.db._
+
+import scala.collection.mutable.ListBuffer
+
+
 /**
  * This controller creates an `Action` to handle HTTP requests to the
  * application's home page.
@@ -17,7 +19,7 @@ import play.api.libs.functional.syntax._
 parse: PlayBodyParsers,
 messagesApi: MessagesApi*/
 @Singleton
-class HomeController @Inject() (val controllerComponents: ControllerComponents) extends BaseController {
+class HomeController @Inject() (cc: ControllerComponents, db: Database) extends AbstractController(cc) {
 
   //val places2: List[Place] = Place(1, "Robledo") :: Place(2, "Medellin") :: Place(3, "Barbosa") :: Nil
 
@@ -44,7 +46,25 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
     * Action to return all places
     */
   def listPlaces = Action {
-    val jsonPlaces = Json.toJson(places)
+    var placesList = ListBuffer[Place]()
+    db.withConnection {
+      conn => {
+        try {
+          val statement = conn.createStatement
+          val query = "SELECT * from place"
+          val resultSet = statement.executeQuery(query)
+          while(resultSet.next()) {
+            val id = resultSet.getInt("id")
+            val name = resultSet.getString("name")
+            val description = resultSet.getString("description")
+            val newPlace = new Place(id, name, Some(description))
+            placesList += newPlace
+          }
+        }
+      }
+    }
+    val placesL = placesList.toList
+    val jsonPlaces = Json.toJson(placesL)
     Ok(jsonPlaces)
   }
 
@@ -63,8 +83,8 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
     * @return
     */
   def addPlace() = Action { implicit request =>
-    val bodyAsJson = request.body.asJson.get
 
+    val bodyAsJson = request.body.asJson.get
     bodyAsJson.validate[Place].fold(
 
       /*Successful*/
@@ -74,7 +94,8 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
         {
           places.find(_.id == response.id) match {
             case Some(q) => Option("The place you want to enter already exists")
-            case None => places = places :+ response
+            //case None => places = places :+ response
+            case None => addPlaceDB(response);
               Option("Successful registration")
           }
         }
@@ -86,7 +107,20 @@ class HomeController @Inject() (val controllerComponents: ControllerComponents) 
         ,
       /*Error*/
       invalid = error => BadRequest(Json.toJson(
-        Map("error" -> "Bad Parameters", "description" -> "Missing a parameter"))))
+        Map("error" -> "Bad Parameters", "description" -> "Missing a parameter")))
+    )
+  }
+
+  def addPlaceDB(place: Place) = {
+    db.withConnection {
+      conn => {
+        try {
+          val statement = conn.createStatement
+          val insertStatement = s"INSERT INTO place VALUES(${place.id}, '${place.name}', '${place.name}');"
+          statement.execute(insertStatement)
+        }
+      }
+    }
   }
 
   /**
