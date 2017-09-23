@@ -137,7 +137,7 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
       conn => {
         try {
           val statement = conn.createStatement
-          val insertStatement = s"INSERT INTO place VALUES(${place.id}, '${place.name}', '${place.name}');"
+          val insertStatement = s"INSERT INTO place VALUES('${place.id}', '${place.name}', '${place.description.get}');"
           statement.execute(insertStatement)
         }
       }
@@ -199,7 +199,7 @@ class HomeController @Inject() (cc: ControllerComponents, db: Database) extends 
       conn => {
         try{
           val statement = conn.createStatement
-          val updateStatement = s"UPDATE place SET id=${place.id}, name= '${place.name}', description ='${place.description}'" +
+          val updateStatement = s"UPDATE place SET id=${place.id}, name= '${place.name}', description ='${place.description.get}'" +
             s"WHERE id=${place.id};"
           statement.execute(updateStatement)
         }
